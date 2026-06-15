@@ -1,0 +1,44 @@
+name: Deploy to IONOS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install lftp
+        run: sudo apt-get install -y lftp
+
+      - name: Deploy via SFTP
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_PASS: ${{ secrets.SFTP_PASS }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -e "
+            set sftp:auto-confirm yes
+            set net:max-retries 3
+            open sftp://$SFTP_USER:$SFTP_PASS@$SFTP_HOST:22
+            mirror --reverse --delete --no-perms \
+              --exclude ^\.git/ \
+              --exclude ^\.github/ \
+              --exclude ^\.env \
+              --exclude ^\.gitignore \
+              --exclude ^deploy\.sh \
+              --exclude ^README\.md \
+              . $SFTP_PATH
+            chmod 644 index.html
+            chmod 644 style.css
+            chmod 644 lang.js
+            chmod 755 assets
+            chmod 755 assets/img
+            chmod 644 assets/img/albert.jpg
+            bye
+          "
